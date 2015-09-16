@@ -1,0 +1,107 @@
+---
+title: "Regression Models Course Project"
+author: "Conor Breen"
+date: "15 September 2015"
+output: word_document
+---
+
+##Regression models analysis of mtcars dataset
+NOTE: Produced in RMarkdown and Knitr via MSWord. .Rmd file and R Script available at https://github.com/cbreen66/Regression-Models
+
+##Executive summary
+Analysing the mtcars dataset, the objective was to answer the questions "Is an automatic or manual transmission better for MPG?" and "Quantify the MPG difference between automatic and manual transmissions".
+
+Two methods were employed. Firstly, exploratory data analysis examined initial relationships between MPG and transmission type. Regression modelling where causality is assumed was used to fully explore the relationship between transmission type, MPG and the other dataset variables.
+
+Key findings were that cars with a manual transmission have get 24.4 miles per gallon on average compared to 17.1 miles per gallon for cars with an automatic transmission. Thus, manual transmission cars are more fuel efficient on average when no other variables are taken into account.
+
+The most parsimonious regression model was found to be one with transmission type, car weight and quarter mile time in seconds (qsec). Holding weight and qsec constant, manual transmission cars get 2.94 miles per gallon more on average than automatic transmission cars. However, both weight and qsec have moderating effects on this relationship.
+
+##Introduction
+This project involved exploratory analysis and regression modelling of the mtcars dataset which measures fuel consumption (in miles per gallon) and nine other car design features and performance measurements. Please note all figures are in the appendices.
+
+The transmission type variable (am) was recoded where 1="manual" and 0="automatic" and converted to a factor.
+
+```{r}
+data(mtcars)
+mtcars$am <- ifelse(mtcars$am == 1, c("manual"), c("automatic"))
+mtcars$am <- as.factor(mtcars$am)
+```
+
+##Exploratory analysis
+A t-test shows that manual cars perform better than automatic cars, getting 24.4 mpg compared to 17.1 mpg for automatic cars (see boxplot). With a p-value of 0.001374, we can safely reject the null hypothesis that the MPG of the automatic and manual transmissions are from the same population (assuming normal distribution).
+
+```{r}
+t.test(mpg~am, data=mtcars)
+```
+
+We can note also that an additional t-test confirms that automatic transmission cars have a significantly greater mean weight than manual cars.
+
+```{r}
+t.test(wt~am, data=mtcars)
+```
+
+##Regression modelling
+A linear regression model was tested which included mpg as the outcome and all 10 other variables in the mtcars dataset as predictors. A summary of this model shows an adjusted r-squared of 0.8066, indicating that the model can explain 81% of the variance in the dataset. However, the p-values indicate no significant explanatory effect of any of the variables. Furthermore, an analysis of variance inflation factors indicates significant multicollinearity.
+
+```{r}
+Allin <- lm(mpg ~ ., data=mtcars)
+summary(Allin)
+library(car)
+vif(Allin)
+```
+
+A backward stepwise approach was used to identify the most parsimonious model of statistically significant regressors using AIC as a means for model selection.
+```{r, results='hide'}
+Model1 <- step(Allin, k=log(nrow(mtcars)))
+```
+
+The selected model with mpg as outcome has weight, qsec and transmission type as predictors. 
+
+A nested model testing method shows that all three predictors are significant.
+```{r}
+fit1 <- lm(mpg ~ wt, data = mtcars)
+fit2 <- update(fit1, mpg ~ wt + qsec)
+fit3 <- update(fit2, mpg ~ wt + qsec + am)
+anova(fit1, fit2, fit3)
+```
+
+Measurement of the adjusted r-squared value shows that this model explains 83% of the variance.
+```{r}
+summary(Model1)
+```
+
+Holding weight and qsec constant, manual transmission cars get 2.94 miles per gallon more on average than automatic transmission cars. However, both weight and qsec have moderating effects on this relationship. As weight increases, car performance in terms of miles per gallon decreases. As qsec increases, car performance also increases.
+
+##Diagnostic testing
+Summary of variance inflation factors indicates the best fit regression model shows no significant multicollinearity. The mean of the residuals is close to zero. 
+```{r}
+vif(Model1)
+mean(Model1$residuals)
+```
+
+Four diagnostic plots were generated (see Appendix) and these show no systematic relationship between fitted values and residuals or standardised residuals. The residuals show a broadly normal distribution with some outliers. 
+
+##Conclusion
+Using the small mtcars dataset, we can conclude that manual transmission cars have a better performance in terms of miles per gallon than automatics. However, weight and quarter mile time in seconds have moderating effects on this relationship. The lighter automatic transmission cars perform as well as the heavier manual transmission cars.
+
+##Appendix
+
+```{r, echo=FALSE}
+boxplot(mpg~am, data=mtcars)
+```
+
+```{r, echo=FALSE}
+par(mfrow=c(2,2)); plot(Model1)
+```
+
+```{r, echo=FALSE}
+library(ggplot2)
+g <- ggplot(mtcars, aes(mpg, wt))
+g + geom_point(colour="blue") + facet_grid(.~am)
+```
+
+```{r, echo=FALSE}
+h <- ggplot(mtcars, aes(mpg, qsec))
+h + geom_point(colour="red") + facet_grid(.~am)
+```
